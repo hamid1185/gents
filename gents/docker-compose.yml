@@ -1,31 +1,19 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: nexusforge-postgres
-    environment:
-      POSTGRES_USER: nexus
-      POSTGRES_PASSWORD: nexusforge123  # Added password
-      POSTGRES_DB: nexusforge
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - nexusforge-network
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: nexusforge-redis
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
     networks:
       - nexusforge-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -34,16 +22,23 @@ services:
     container_name: nexusforge-backend
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - DATABASE_URL=postgresql://nexus:nexusforge123@postgres:5432/nexusforge  # Updated with password
+      - DATABASE_URL=sqlite:///./nexusforge.db
       - REDIS_URL=redis://redis:6379
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
       - redis
+    volumes:
+      - ./backend:/app
+      - backend_data:/app/data
     networks:
       - nexusforge-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
@@ -51,18 +46,24 @@ services:
       dockerfile: Dockerfile
     container_name: nexusforge-frontend
     environment:
-      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=0         
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
     networks:
       - nexusforge-network
     restart: unless-stopped
+    stdin_open: true 
+    tty: true   
 
 volumes:
-  postgres_data:
-  redis_data:
+  backend_data:
 
 networks:
   nexusforge-network:

@@ -1,4 +1,3 @@
-# Frontend Dockerfile
 FROM node:18-alpine
 
 WORKDIR /app
@@ -6,20 +5,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Use npm install instead of npm ci (more forgiving)
+RUN npm install --silent
 
 # Copy source code
 COPY . .
 
-# Build app
-RUN npm run build
-
-# Install serve to run the build
-RUN npm install -g serve
+# Verify the structure
+RUN ls -la /app/src/ && ls -la /app/public/
 
 # Expose port
 EXPOSE 3000
 
-# Start app
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Start development server
+CMD ["npm", "start"]

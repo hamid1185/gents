@@ -850,6 +850,29 @@ async def create_file(project_id: str, file: FileCreate):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+        
+@app.get("/api/projects/{project_id}/files/project")
+async def get_project_files(project_id: str):
+    """Get only project files (filter out config/test files)"""
+    db = SessionLocal()
+    
+    try:
+        all_files = db.query(ProjectFile).filter_by(project_id=project_id).all()
+        
+        # Filter out configuration and test files
+        project_files = []
+        config_patterns = ['Dockerfile', 'docker-compose', '.yml', '.yaml', 
+                          'package.json', 'requirements.txt', '.config.js',
+                          '.gitignore', '.env', 'alembic', 'migrations',
+                          'tests/', '.test.', 'spec.', 'e2e/']
+        
+        for file in all_files:
+            if not any(pattern in file.file_path for pattern in config_patterns):
+                project_files.append(file)
+        
+        return {"files": [f.file_path for f in project_files]}
+    finally:
+        db.close()
 
 @app.get("/api/agents/status")
 async def get_agent_status():

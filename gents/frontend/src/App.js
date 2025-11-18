@@ -1,10 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Terminal, FileText, Users, Cpu, FolderTree, Plus, Save, Activity, Download, Trash2 } from 'lucide-react';
 import './App.css';
 
 // API Configuration
-// API Configuration
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
+// Simple icon components to replace lucide-react
+const Icon = ({ children, className = '' }) => (
+  <span className={`icon ${className}`}>{children}</span>
+);
+
+const PlayIcon = () => <Icon>▶</Icon>;
+const TerminalIcon = () => <Icon>💻</Icon>;
+const FileTextIcon = () => <Icon>📄</Icon>;
+const UsersIcon = () => <Icon>👥</Icon>;
+const CpuIcon = () => <Icon>⚡</Icon>;
+const FolderTreeIcon = () => <Icon>📁</Icon>;
+const PlusIcon = () => <Icon>➕</Icon>;
+const SaveIcon = () => <Icon>💾</Icon>;
+const ActivityIcon = () => <Icon>🔄</Icon>;
+const DownloadIcon = () => <Icon>📥</Icon>;
+const TrashIcon = () => <Icon>🗑️</Icon>;
 
 export default function NexusForge() {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -198,6 +213,8 @@ export default function NexusForge() {
     }
   };
 
+  
+
   const downloadProject = () => {
     if (!currentProject || files.length === 0) {
       alert('No files to download');
@@ -251,7 +268,7 @@ export default function NexusForge() {
 
       <div className="card">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Play className="w-6 h-6" />
+          <PlayIcon />
           Create New Project
         </h2>
         <textarea
@@ -268,12 +285,12 @@ export default function NexusForge() {
         >
           {isRunning ? (
             <>
-              <Activity className="w-5 h-5 animate-spin" />
+              <ActivityIcon />
               Building...
             </>
           ) : (
             <>
-              <Play className="w-5 h-5" />
+              <PlayIcon />
               Start Autonomous Build
             </>
           )}
@@ -282,18 +299,18 @@ export default function NexusForge() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="stat-card">
-          <Users className="w-8 h-8 text-blue-600 mb-3" />
+          <UsersIcon />
           <h3 className="font-bold text-lg mb-2">AI Agents</h3>
           <p className="text-gray-600 text-sm">12 specialized agents ready</p>
           <p className="text-xs text-gray-500 mt-2">PM • Architect • Backend • Frontend • Database • QA • DevOps • Security • Mobile • ML • Docs • UX</p>
         </div>
         <div className="stat-card">
-          <FileText className="w-8 h-8 text-green-600 mb-3" />
+          <FileTextIcon />
           <h3 className="font-bold text-lg mb-2">Files Generated</h3>
           <p className="text-gray-600 text-sm">{files.length} files in workspace</p>
         </div>
         <div className="stat-card">
-          <Cpu className="w-8 h-8 text-purple-600 mb-3" />
+          <CpuIcon />
           <h3 className="font-bold text-lg mb-2">Status</h3>
           <p className="text-gray-600 text-sm">{isRunning ? 'Building...' : currentProject?.status || 'Ready'}</p>
         </div>
@@ -304,7 +321,7 @@ export default function NexusForge() {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold">Current Project</h3>
             <button onClick={downloadProject} className="btn btn-secondary">
-              <Download className="w-4 h-4" />
+              <DownloadIcon />
               Download
             </button>
           </div>
@@ -316,21 +333,42 @@ export default function NexusForge() {
     </div>
   );
 
+
+  //filter project files
+const filterProjectFiles = (files) => {
+  const projectFilePatterns = [
+    /\.html$/, /\.css$/, /\.js$/, /\.json$/, 
+    /\/src\//, /\/public\//, /^[^/]+\.[^/]+$/ 
+  ];
+  
+  const configFilePatterns = [
+    /Dockerfile/, /docker-compose/, /\.yml$/, /\.yaml$/,
+    /package\.json/, /requirements\.txt/, /\.config\.js$/,
+    /\.gitignore/, /\.env/, /alembic/, /migrations/,
+    /tests?\//, /\.test\./, /spec\./, /e2e\//
+  ];
+
+  return files.filter(file => 
+    projectFilePatterns.some(pattern => pattern.test(file)) &&
+    !configFilePatterns.some(pattern => pattern.test(file))
+  );
+};
+
   const renderEditor = () => (
     <div className="flex h-full">
       <div className="file-tree">
         <div className="file-tree-header">
           <h3 className="font-bold flex items-center gap-2">
-            <FolderTree className="w-5 h-5" />
+            <FolderTreeIcon />
             Files
           </h3>
           <button
             onClick={createNewFile}
             className="p-1 hover:bg-gray-200 rounded"
             disabled={!currentProject}
-            title="Create new file"
+            title="Create new file"renderLogs 
           >
-            <Plus className="w-4 h-4" />
+            <PlusIcon />
           </button>
         </div>
         {files.length === 0 ? (
@@ -344,7 +382,7 @@ export default function NexusForge() {
               onClick={() => setSelectedFile(path)}
               className={`file-item ${selectedFile === path ? 'file-item-active' : ''}`}
             >
-              <FileText className="w-4 h-4" />
+              <FileTextIcon />
               <span className="text-sm truncate">{path}</span>
             </div>
           ))
@@ -364,7 +402,7 @@ export default function NexusForge() {
             disabled={!selectedFile}
             className="btn btn-primary btn-sm"
           >
-            <Save className="w-4 h-4" />
+            <SaveIcon />
             Save
           </button>
         </div>
@@ -381,51 +419,43 @@ export default function NexusForge() {
   );
 
   const renderLogs = () => (
-    <div className="log-container">
-      <div className="log-header">
-        <h3 className="font-bold flex items-center gap-2">
-          <Terminal className="w-5 h-5" />
-          Build Logs & Agent Activity
-        </h3>
+  <div className="log-container">
+    <div className="log-header">
+      <h3 className="font-bold flex items-center gap-2">
+        <TerminalIcon />
+        Live Agent Activity
+      </h3>
+      <div className="agent-status">
         {isRunning && (
-          <Activity className="w-5 h-5 text-green-400 animate-spin" />
-        )}
-      </div>
-
-      <div className="log-content">
-        {logs.map((log, i) => (
-          <div
-            key={i}
-            className={`log-entry log-${log.level}`}
-          >
-            <span className="log-time">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-            {' '}
-            <span className="log-agent">[{log.agent}]</span>
-            {' '}
-            {log.message}
-          </div>
-        ))}
-        
-        {logs.length === 0 && !isRunning && (
-          <div className="text-gray-500 text-center mt-8">
-            No build logs yet. Start a project from the dashboard.
+          <div className="flex items-center gap-2">
+            <ActivityIcon />
+            <span className="text-sm">Agents Working...</span>
           </div>
         )}
-        
-        {isRunning && logs.length === 0 && (
-          <div className="text-yellow-400 animate-pulse">
-            Initializing agents...
-          </div>
-        )}
-        <div ref={logsEndRef} />
       </div>
     </div>
-  );
+
+    <div className="log-content">
+      {logs.map((log, i) => (
+        <div key={i} className={`log-entry log-${log.level} agent-${log.agent.toLowerCase()}`}>
+          <span className="log-time">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+          {' '}
+          <span className={`log-agent agent-${log.agent.toLowerCase()}`}>
+            [{log.agent}]
+          </span>
+          {' '}
+          <span className="log-message">{log.message}</span>
+        </div>
+      ))}
+      <div ref={logsEndRef} />
+    </div>
+  </div>
+);
 
   const renderAgents = () => (
     <div className="p-6 space-y-4 overflow-y-auto">
       <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <Users className="w-6 h-6" />
+        <UsersIcon />
         AI Agent Team (Gemini 2.0 Flash)
       </h2>
       
@@ -463,7 +493,7 @@ export default function NexusForge() {
     <div className="app-container">
       <header className="app-header">
         <div className="flex items-center gap-2">
-          <Cpu className="w-6 h-6 text-blue-600" />
+          <CpuIcon />
           <span className="font-bold text-xl">NexusForge</span>
           <span className="text-xs text-gray-500 ml-2">Gemini 2.0 Flash</span>
         </div>

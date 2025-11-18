@@ -198,6 +198,8 @@
 
 .code-editor {
   flex: 1;
+  height: 50vw;
+  width: 100vw;
   padding: 1rem;
   font-family: 'Courier New', monospace;
   font-size: 0.875rem;
@@ -211,6 +213,8 @@
 
 .code-editor::placeholder {
   color: #6b7280;
+   height: 50vw;
+  width: 100vw;
 }
 
 /* Logs Styles */
@@ -348,3 +352,76 @@
     opacity: .5;
   }
 }
+
+
+/* Agent-specific log styles */
+.log-entry.agent-productmanager {
+  border-left: 4px solid #3b82f6;
+}
+
+.log-entry.agent-uxdesigner {
+  border-left: 4px solid #8b5cf6;
+}
+
+.log-entry.agent-frontendengineer {
+  border-left: 4px solid #10b981;
+}
+
+.log-entry.agent-backendengineer {
+  border-left: 4px solid #f59e0b;
+}
+
+.log-entry.agent-systemarchitect {
+  border-left: 4px solid #ef4444;
+}
+
+.log-agent {
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.agent-productmanager { background: #dbeafe; color: #1e40af; }
+.agent-uxdesigner { background: #ede9fe; color: #5b21b6; }
+.agent-frontendengineer { background: #dcfce7; color: #047857; }
+.agent-backendengineer { background: #fef3c7; color: #92400e; }
+.agent-systemarchitect { background: #fee2e2; color: #991b1b; }
+
+/* File tree improvements */
+.file-tree {
+  width: 350px;
+  background: #f8fafc;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.file-item:hover {
+  background: #edf2f7;
+}
+
+.file-item-active {
+  background: #e0f2fe;
+  border-left: 3px solid #0ea5e9;
+}
+
+/* Project file badges */
+.file-badge {
+  font-size: 0.7em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.badge-html { background: #e34c26; color: white; }
+.badge-css { background: #264de4; color: white; }
+.badge-js { background: #f7df1e; color: black; }
+.badge-json { background: #000; color: white; }
