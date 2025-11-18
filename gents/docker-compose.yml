@@ -1,26 +1,21 @@
-# docker-compose.yml
-# Complete NexusForge stack with Python backend
-
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: nexusforge-postgres
     environment:
       POSTGRES_USER: nexus
-      POSTGRES_PASSWORD: nexusforge
+      POSTGRES_PASSWORD: nexusforge123  # Added password
       POSTGRES_DB: nexusforge
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
     networks:
       - nexusforge-network
+    restart: unless-stopped
 
-  # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: nexusforge-redis
@@ -28,11 +23,10 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    restart: unless-stopped
     networks:
       - nexusforge-network
+    restart: unless-stopped
 
-  # Python Backend with Gemini
   backend:
     build:
       context: ./backend
@@ -40,34 +34,31 @@ services:
     container_name: nexusforge-backend
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - DATABASE_URL=postgresql://nexus:nexusforge@postgres:5432/nexusforge
+      - DATABASE_URL=postgresql://nexus:nexusforge123@postgres:5432/nexusforge  # Updated with password
       - REDIS_URL=redis://redis:6379
     ports:
       - "8000:8000"
     depends_on:
       - postgres
       - redis
-    restart: unless-stopped
     networks:
       - nexusforge-network
-    volumes:
-      - ./backend:/app
+    restart: unless-stopped
 
-  # React Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: nexusforge-frontend
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_URL=http://backend:8000
     ports:
       - "3000:3000"
     depends_on:
       - backend
-    restart: unless-stopped
     networks:
       - nexusforge-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:

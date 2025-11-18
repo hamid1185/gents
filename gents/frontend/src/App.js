@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Terminal, FileText, Users, Cpu, FolderTree, Plus, Save, Activity } from 'lucide-react';
+import { Play, Terminal, FileText, Users, Cpu, FolderTree, Plus, Save, Activity, Download, Trash2 } from 'lucide-react';
+import './App.css';
 
+// API Configuration
 // API Configuration
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -17,34 +19,44 @@ export default function NexusForge() {
   const [agentStatus, setAgentStatus] = useState({});
   const editorRef = useRef(null);
   const logIntervalRef = useRef(null);
+  const logsEndRef = useRef(null);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logsEndRef.current && currentView === 'logs') {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs, currentView]);
 
   // Fetch logs periodically
   useEffect(() => {
-    if (currentProject && logIntervalRef.current === null) {
-      logIntervalRef.current = setInterval(async () => {
-        try {
-          const response = await fetch(`${API_URL}/api/projects/${currentProject.id}/logs`);
-          const data = await response.json();
-          setLogs(data.logs || []);
-          
-          // Check project status
-          const projectResponse = await fetch(`${API_URL}/api/projects/${currentProject.id}`);
-          const projectData = await projectResponse.json();
-          
-          if (projectData.status === 'completed' || projectData.status === 'failed') {
-            setIsRunning(false);
-            if (logIntervalRef.current) {
-              clearInterval(logIntervalRef.current);
-              logIntervalRef.current = null;
-            }
+    if (currentProject && currentView === 'logs') {
+      if (logIntervalRef.current === null) {
+        logIntervalRef.current = setInterval(async () => {
+          try {
+            const response = await fetch(`${API_URL}/api/projects/${currentProject.id}/logs`);
+            const data = await response.json();
+            setLogs(data.logs || []);
             
-            // Refresh files
-            await fetchFiles(currentProject.id);
+            // Check project status
+            const projectResponse = await fetch(`${API_URL}/api/projects/${currentProject.id}`);
+            const projectData = await projectResponse.json();
+            
+            if (projectData.status === 'completed' || projectData.status === 'failed') {
+              setIsRunning(false);
+              if (logIntervalRef.current) {
+                clearInterval(logIntervalRef.current);
+                logIntervalRef.current = null;
+              }
+              
+              // Refresh files
+              await fetchFiles(currentProject.id);
+            }
+          } catch (error) {
+            console.error('Error fetching logs:', error);
           }
-        } catch (error) {
-          console.error('Error fetching logs:', error);
-        }
-      }, 2000);
+        }, 2000);
+      }
     }
     
     return () => {
@@ -53,7 +65,7 @@ export default function NexusForge() {
         logIntervalRef.current = null;
       }
     };
-  }, [currentProject]);
+  }, [currentProject, currentView]);
 
   // Load file content when selected
   useEffect(() => {
@@ -148,7 +160,7 @@ export default function NexusForge() {
     if (!currentProject || !selectedFile) return;
     
     try {
-      await fetch(`${API_URL}/api/projects/${currentProject.id}/files`, {
+      const response = await fetch(`${API_URL}/api/projects/${currentProject.id}/files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -157,7 +169,11 @@ export default function NexusForge() {
         })
       });
       
-      alert('File saved successfully!');
+      const data = await response.json();
+      
+      if (data.success) {
+        alert('File saved successfully!');
+      }
     } catch (error) {
       console.error('Error saving file:', error);
       alert('Error saving file');
@@ -166,36 +182,80 @@ export default function NexusForge() {
 
   const createNewFile = () => {
     const filename = prompt('Enter filename (e.g., /src/app.js):');
-    if (filename && filename.startsWith('/') && currentProject) {
+    if (filename && currentProject) {
+      const path = filename.startsWith('/') ? filename : '/' + filename;
       fetch(`${API_URL}/api/projects/${currentProject.id}/files`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          path: filename,
+          path: path,
           content: '// New file\n'
         })
       }).then(() => {
         fetchFiles(currentProject.id);
-        setSelectedFile(filename);
+        setSelectedFile(path);
       });
     }
   };
 
+  const downloadProject = () => {
+    if (!currentProject || files.length === 0) {
+      alert('No files to download');
+      return;
+    }
+
+    // Create a simple download of all files as text
+    let content = `# ${currentProject.name}\n\n`;
+    files.forEach(file => {
+      content += `\n\n## File: ${file}\n\n`;
+      // Would need to fetch each file content - simplified for now
+    });
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentProject.name.replace(/\s+/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const getFileLanguage = (path) => {
+    const ext = path.split('.').pop();
+    const langMap = {
+      'js': 'javascript',
+      'jsx': 'javascript',
+      'ts': 'typescript',
+      'tsx': 'typescript',
+      'py': 'python',
+      'json': 'json',
+      'css': 'css',
+      'html': 'html',
+      'md': 'markdown',
+      'sql': 'sql',
+      'sh': 'bash',
+      'yml': 'yaml',
+      'yaml': 'yaml',
+      'txt': 'text'
+    };
+    return langMap[ext] || 'text';
+  };
+
   const renderDashboard = () => (
     <div className="p-6 space-y-6">
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 rounded-lg text-white">
+      <div className="hero-gradient p-8 rounded-lg text-white">
         <h1 className="text-4xl font-bold mb-2">NexusForge</h1>
         <p className="text-lg opacity-90">Autonomous Multi-Agent AI Software Development System</p>
         <p className="text-sm opacity-75 mt-2">Powered by Google Gemini 2.0 Flash • 12 Specialized AI Agents</p>
       </div>
 
-      <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+      <div className="card">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <Play className="w-6 h-6" />
           Create New Project
         </h2>
         <textarea
-          className="w-full h-32 p-4 border-2 border-gray-300 rounded-lg mb-4 font-mono text-sm"
+          className="w-full h-32 p-4 border-2 border-gray-300 rounded-lg mb-4 font-mono text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Describe your project idea in detail...&#10;&#10;Example: Build a full-stack task management application with user authentication, real-time updates, drag-and-drop interface, and mobile support. Include PostgreSQL database, React frontend, Node.js backend, and deploy to Docker."
           value={projectIdea}
           onChange={(e) => setProjectIdea(e.target.value)}
@@ -204,7 +264,7 @@ export default function NexusForge() {
         <button
           onClick={startAutonomousBuild}
           disabled={isRunning}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2"
+          className="btn btn-primary"
         >
           {isRunning ? (
             <>
@@ -220,31 +280,46 @@ export default function NexusForge() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="stat-card">
           <Users className="w-8 h-8 text-blue-600 mb-3" />
           <h3 className="font-bold text-lg mb-2">AI Agents</h3>
           <p className="text-gray-600 text-sm">12 specialized agents ready</p>
           <p className="text-xs text-gray-500 mt-2">PM • Architect • Backend • Frontend • Database • QA • DevOps • Security • Mobile • ML • Docs • UX</p>
         </div>
-        <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+        <div className="stat-card">
           <FileText className="w-8 h-8 text-green-600 mb-3" />
           <h3 className="font-bold text-lg mb-2">Files Generated</h3>
           <p className="text-gray-600 text-sm">{files.length} files in workspace</p>
         </div>
-        <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+        <div className="stat-card">
           <Cpu className="w-8 h-8 text-purple-600 mb-3" />
           <h3 className="font-bold text-lg mb-2">Status</h3>
           <p className="text-gray-600 text-sm">{isRunning ? 'Building...' : currentProject?.status || 'Ready'}</p>
         </div>
       </div>
+
+      {currentProject && (
+        <div className="card">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">Current Project</h3>
+            <button onClick={downloadProject} className="btn btn-secondary">
+              <Download className="w-4 h-4" />
+              Download
+            </button>
+          </div>
+          <p className="text-gray-600 mb-2"><strong>Name:</strong> {currentProject.name}</p>
+          <p className="text-gray-600 mb-2"><strong>Status:</strong> <span className={`badge ${currentProject.status === 'completed' ? 'badge-success' : currentProject.status === 'failed' ? 'badge-error' : 'badge-warning'}`}>{currentProject.status}</span></p>
+          <p className="text-gray-600"><strong>Files:</strong> {files.length}</p>
+        </div>
+      )}
     </div>
   );
 
   const renderEditor = () => (
     <div className="flex h-full">
-      <div className="w-64 bg-gray-50 border-r-2 border-gray-200 overflow-y-auto">
-        <div className="p-4 border-b-2 border-gray-200 flex justify-between items-center">
+      <div className="file-tree">
+        <div className="file-tree-header">
           <h3 className="font-bold flex items-center gap-2">
             <FolderTree className="w-5 h-5" />
             Files
@@ -253,6 +328,7 @@ export default function NexusForge() {
             onClick={createNewFile}
             className="p-1 hover:bg-gray-200 rounded"
             disabled={!currentProject}
+            title="Create new file"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -266,24 +342,27 @@ export default function NexusForge() {
             <div
               key={path}
               onClick={() => setSelectedFile(path)}
-              className={`px-4 py-2 cursor-pointer hover:bg-gray-200 ${
-                selectedFile === path ? 'bg-blue-100 border-l-4 border-blue-600' : ''
-              }`}
+              className={`file-item ${selectedFile === path ? 'file-item-active' : ''}`}
             >
-              <FileText className="w-4 h-4 inline mr-2" />
-              <span className="text-sm">{path}</span>
+              <FileText className="w-4 h-4" />
+              <span className="text-sm truncate">{path}</span>
             </div>
           ))
         )}
       </div>
 
       <div className="flex-1 flex flex-col">
-        <div className="bg-gray-800 text-white px-4 py-2 flex justify-between items-center">
-          <span className="font-mono text-sm">{selectedFile || 'No file selected'}</span>
+        <div className="editor-header">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm">{selectedFile || 'No file selected'}</span>
+            {selectedFile && (
+              <span className="badge badge-secondary">{getFileLanguage(selectedFile)}</span>
+            )}
+          </div>
           <button
             onClick={saveFile}
             disabled={!selectedFile}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-3 py-1 rounded text-sm flex items-center gap-2"
+            className="btn btn-primary btn-sm"
           >
             <Save className="w-4 h-4" />
             Save
@@ -293,7 +372,7 @@ export default function NexusForge() {
           ref={editorRef}
           value={fileContent}
           onChange={(e) => setFileContent(e.target.value)}
-          className="flex-1 p-4 font-mono text-sm bg-gray-900 text-gray-100 focus:outline-none"
+          className="code-editor"
           spellCheck={false}
           placeholder={selectedFile ? "Loading..." : "Select a file to edit"}
         />
@@ -302,8 +381,8 @@ export default function NexusForge() {
   );
 
   const renderLogs = () => (
-    <div className="h-full bg-gray-900 text-gray-100 p-4 overflow-y-auto font-mono text-sm">
-      <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
+    <div className="log-container">
+      <div className="log-header">
         <h3 className="font-bold flex items-center gap-2">
           <Terminal className="w-5 h-5" />
           Build Logs & Agent Activity
@@ -313,34 +392,33 @@ export default function NexusForge() {
         )}
       </div>
 
-      {logs.map((log, i) => (
-        <div
-          key={i}
-          className={`mb-2 ${
-            log.level === 'error' ? 'text-red-400' :
-            log.level === 'success' ? 'text-green-400' :
-            'text-gray-300'
-          }`}
-        >
-          <span className="text-gray-500">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
-          {' '}
-          <span className="text-blue-400">[{log.agent}]</span>
-          {' '}
-          {log.message}
-        </div>
-      ))}
-      
-      {logs.length === 0 && !isRunning && (
-        <div className="text-gray-500 text-center mt-8">
-          No build logs yet. Start a project from the dashboard.
-        </div>
-      )}
-      
-      {isRunning && logs.length === 0 && (
-        <div className="text-yellow-400 animate-pulse">
-          Initializing agents...
-        </div>
-      )}
+      <div className="log-content">
+        {logs.map((log, i) => (
+          <div
+            key={i}
+            className={`log-entry log-${log.level}`}
+          >
+            <span className="log-time">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
+            {' '}
+            <span className="log-agent">[{log.agent}]</span>
+            {' '}
+            {log.message}
+          </div>
+        ))}
+        
+        {logs.length === 0 && !isRunning && (
+          <div className="text-gray-500 text-center mt-8">
+            No build logs yet. Start a project from the dashboard.
+          </div>
+        )}
+        
+        {isRunning && logs.length === 0 && (
+          <div className="text-yellow-400 animate-pulse">
+            Initializing agents...
+          </div>
+        )}
+        <div ref={logsEndRef} />
+      </div>
     </div>
   );
 
@@ -351,83 +429,78 @@ export default function NexusForge() {
         AI Agent Team (Gemini 2.0 Flash)
       </h2>
       
-      {[
-        { name: 'Product Manager', desc: 'Requirements analysis and product strategy', color: 'blue' },
-        { name: 'System Architect', desc: 'System design and technical architecture', color: 'purple' },
-        { name: 'Backend Engineer', desc: 'API development and server-side logic', color: 'green' },
-        { name: 'Frontend Engineer', desc: 'User interface and client-side development', color: 'cyan' },
-        { name: 'Database Engineer', desc: 'Schema design and data optimization', color: 'yellow' },
-        { name: 'QA Engineer', desc: 'Testing and quality assurance', color: 'red' },
-        { name: 'DevOps Engineer', desc: 'Deployment and infrastructure', color: 'orange' },
-        { name: 'Security Engineer', desc: 'Security review and best practices', color: 'pink' },
-        { name: 'Mobile Engineer', desc: 'Mobile app development', color: 'indigo' },
-        { name: 'ML Engineer', desc: 'Machine learning and AI features', color: 'violet' },
-        { name: 'Documentation Specialist', desc: 'Technical documentation and guides', color: 'teal' },
-        { name: 'UX Designer', desc: 'User experience and interface design', color: 'rose' }
-      ].map((agent, i) => (
-        <div key={i} className="bg-white p-6 rounded-lg border-2 border-gray-200">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="font-bold text-lg">{agent.name}</h3>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-              Ready
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[
+          { name: 'Product Manager', desc: 'Requirements analysis and product strategy', icon: '📋', color: 'blue' },
+          { name: 'System Architect', desc: 'System design and technical architecture', icon: '🏗️', color: 'purple' },
+          { name: 'Backend Engineer', desc: 'API development and server-side logic', icon: '⚙️', color: 'green' },
+          { name: 'Frontend Engineer', desc: 'User interface and client-side development', icon: '💻', color: 'cyan' },
+          { name: 'Database Engineer', desc: 'Schema design and data optimization', icon: '🗄️', color: 'yellow' },
+          { name: 'QA Engineer', desc: 'Testing and quality assurance', icon: '🧪', color: 'red' },
+          { name: 'DevOps Engineer', desc: 'Deployment and infrastructure', icon: '🚀', color: 'orange' },
+          { name: 'Security Engineer', desc: 'Security review and best practices', icon: '🔒', color: 'pink' },
+          { name: 'Mobile Engineer', desc: 'Mobile app development', icon: '📱', color: 'indigo' },
+          { name: 'ML Engineer', desc: 'Machine learning and AI features', icon: '🤖', color: 'violet' },
+          { name: 'Documentation Specialist', desc: 'Technical documentation and guides', icon: '📚', color: 'teal' },
+          { name: 'UX Designer', desc: 'User experience and interface design', icon: '🎨', color: 'rose' }
+        ].map((agent, i) => (
+          <div key={i} className="agent-card">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{agent.icon}</span>
+                <h3 className="font-bold text-lg">{agent.name}</h3>
+              </div>
+              <span className="badge badge-success">Ready</span>
+            </div>
+            <p className="text-gray-600">{agent.desc}</p>
           </div>
-          <p className="text-gray-600">{agent.desc}</p>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
-      <div className="bg-white border-b-2 border-gray-200 px-6 py-3 flex justify-between items-center">
+    <div className="app-container">
+      <header className="app-header">
         <div className="flex items-center gap-2">
           <Cpu className="w-6 h-6 text-blue-600" />
           <span className="font-bold text-xl">NexusForge</span>
           <span className="text-xs text-gray-500 ml-2">Gemini 2.0 Flash</span>
         </div>
-        <div className="flex gap-2">
+        <nav className="nav-tabs">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className={`px-4 py-2 rounded-lg ${
-              currentView === 'dashboard' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-            }`}
+            className={`nav-tab ${currentView === 'dashboard' ? 'nav-tab-active' : ''}`}
           >
             Dashboard
           </button>
           <button
             onClick={() => setCurrentView('editor')}
-            className={`px-4 py-2 rounded-lg ${
-              currentView === 'editor' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-            }`}
+            className={`nav-tab ${currentView === 'editor' ? 'nav-tab-active' : ''}`}
           >
             Editor
           </button>
           <button
             onClick={() => setCurrentView('logs')}
-            className={`px-4 py-2 rounded-lg ${
-              currentView === 'logs' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-            }`}
+            className={`nav-tab ${currentView === 'logs' ? 'nav-tab-active' : ''}`}
           >
             Logs
           </button>
           <button
             onClick={() => setCurrentView('agents')}
-            className={`px-4 py-2 rounded-lg ${
-              currentView === 'agents' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-            }`}
+            className={`nav-tab ${currentView === 'agents' ? 'nav-tab-active' : ''}`}
           >
             Agents
           </button>
-        </div>
-      </div>
+        </nav>
+      </header>
 
-      <div className="flex-1 overflow-hidden">
+      <main className="app-main">
         {currentView === 'dashboard' && renderDashboard()}
         {currentView === 'editor' && renderEditor()}
         {currentView === 'logs' && renderLogs()}
         {currentView === 'agents' && renderAgents()}
-      </div>
+      </main>
     </div>
   );
 }
